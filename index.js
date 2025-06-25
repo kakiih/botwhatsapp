@@ -282,24 +282,19 @@ async function startBot() {
           break;
 
         case "s": {
-          // Verifica se a mensagem é resposta com mídia
-          const quotedMessageId =
-            msg.message.extendedTextMessage?.contextInfo?.stanzaId;
-          if (!quotedMessageId) {
+          const quoted =
+            msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+
+          if (!quoted) {
             await sock.sendMessage(from, {
               text: "❗ Responda a uma imagem ou vídeo para virar figurinha!",
             });
             break;
           }
 
-          // Busca a mensagem completa da mídia respondida
-          const quotedMsg = await sock.loadMessage(from, quotedMessageId);
-
           let mediaMessage = null;
-          if (quotedMsg.message.imageMessage)
-            mediaMessage = quotedMsg.message.imageMessage;
-          else if (quotedMsg.message.videoMessage)
-            mediaMessage = quotedMsg.message.videoMessage;
+          if (quoted.imageMessage) mediaMessage = quoted.imageMessage;
+          else if (quoted.videoMessage) mediaMessage = quoted.videoMessage;
 
           if (!mediaMessage) {
             await sock.sendMessage(from, {
@@ -309,10 +304,7 @@ async function startBot() {
           }
 
           try {
-            // Agora sim baixa o buffer da mídia
-            const buffer = await sock.downloadMediaMessage(quotedMsg);
-
-            // Envia o sticker
+            const buffer = await sock.downloadMediaMessage({ message: quoted });
             await sock.sendMessage(from, { sticker: buffer });
           } catch (error) {
             console.error(error);
