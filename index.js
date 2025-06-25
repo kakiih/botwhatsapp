@@ -9,6 +9,7 @@ const qrcode = require("qrcode-terminal");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
+  const prefixo = ",";
 
   const sock = makeWASocket({
     version: (await fetchLatestBaileysVersion()).version,
@@ -88,7 +89,6 @@ async function startBot() {
 
     console.log("📩 Mensagem recebida:", text);
 
-    const prefixo = "$";
     const textoMinusculo = text.toLowerCase();
 
     if (text.startsWith(prefixo)) {
@@ -116,7 +116,8 @@ async function startBot() {
 ┃ ✋ ${prefixo}tapa @ — Dê um tapa com estilo!
 ┃ 🚽 ${prefixo}mijar @ — Liberte a bexiga em alguém
 ┃ 🎮 ${prefixo}jogodavelha @ — Desafie alguém para jogar!
-┃ 🎲 ${prefixo}jokenpo [pedra, papel ou tesoura]
+┃ 🎲 ${prefixo}jokenpo — [pedra, papel ou tesoura]
+┃ 🖼️ ${prefixo}s — crie um sticker!
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
             `,
@@ -280,9 +281,52 @@ async function startBot() {
           }
           break;
 
+        case "s": {
+          // Verifica se a mensagem é resposta com mídia
+          const quotedMessageId =
+            msg.message.extendedTextMessage?.contextInfo?.stanzaId;
+          if (!quotedMessageId) {
+            await sock.sendMessage(from, {
+              text: "❗ Responda a uma imagem ou vídeo para virar figurinha!",
+            });
+            break;
+          }
+
+          // Busca a mensagem completa da mídia respondida
+          const quotedMsg = await sock.loadMessage(from, quotedMessageId);
+
+          let mediaMessage = null;
+          if (quotedMsg.message.imageMessage)
+            mediaMessage = quotedMsg.message.imageMessage;
+          else if (quotedMsg.message.videoMessage)
+            mediaMessage = quotedMsg.message.videoMessage;
+
+          if (!mediaMessage) {
+            await sock.sendMessage(from, {
+              text: "❗ A mensagem respondida não contém imagem ou vídeo.",
+            });
+            break;
+          }
+
+          try {
+            // Agora sim baixa o buffer da mídia
+            const buffer = await sock.downloadMediaMessage(quotedMsg);
+
+            // Envia o sticker
+            await sock.sendMessage(from, { sticker: buffer });
+          } catch (error) {
+            console.error(error);
+            await sock.sendMessage(from, {
+              text: "❗ Erro ao criar figurinha. Tente novamente.",
+            });
+          }
+
+          break;
+        }
+
         default:
           await sock.sendMessage(from, {
-            text: "❓ Comando não reconhecido. Digite `$menu` para ver os comandos.",
+            text: `❓ Comando não reconhecido. Digite ${prefixo}menu para ver os comandos.`,
           });
       }
     } else {
