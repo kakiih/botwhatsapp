@@ -6,6 +6,7 @@ const {
 } = require("@whiskeysockets/baileys");
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
+const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
@@ -304,7 +305,10 @@ async function startBot() {
           }
 
           try {
-            const buffer = await sock.downloadMediaMessage({ message: quoted });
+            const buffer = await downloadMediaMessage({
+              message: quoted,
+              sock,
+            });
             await sock.sendMessage(from, { sticker: buffer });
           } catch (error) {
             console.error(error);
