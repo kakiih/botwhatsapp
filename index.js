@@ -7,6 +7,7 @@ const {
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
 const { downloadMediaMessage } = require("@whiskeysockets/baileys");
+const { Sticker, StickerTypes } = require("wa-sticker-formatter");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
@@ -284,36 +285,56 @@ async function startBot() {
 
         case "s": {
           const quoted =
-            msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
           if (!quoted) {
             await sock.sendMessage(from, {
-              text: "❗ Responda a uma imagem ou vídeo para virar figurinha!",
+              text: "❗ Responda a uma imagem ou vídeo para transformar em figurinha.",
             });
             break;
           }
 
+          let mediaType = null;
           let mediaMessage = null;
-          if (quoted.imageMessage) mediaMessage = quoted.imageMessage;
-          else if (quoted.videoMessage) mediaMessage = quoted.videoMessage;
+
+          if (quoted.imageMessage) {
+            mediaType = "image";
+            mediaMessage = quoted.imageMessage;
+          } else if (quoted.videoMessage) {
+            mediaType = "video";
+            mediaMessage = quoted.videoMessage;
+          }
 
           if (!mediaMessage) {
             await sock.sendMessage(from, {
-              text: "❗ A mensagem respondida não contém imagem ou vídeo.",
+              text: "❗ A mensagem respondida não contém mídia suportada (imagem ou vídeo).",
             });
             break;
           }
 
           try {
-            const buffer = await downloadMediaMessage({
-              message: quoted,
-              sock,
+            const buffer = await downloadMediaMessage(
+              { message: { [`${mediaType}Message`]: mediaMessage } },
+              "buffer"
+            );
+
+            // Cria figurinha personalizada com nome do pacote e autor
+            const sticker = new Sticker(buffer, {
+              pack: "Bot da sylva",
+              author: "Bot da sylva",
+              type: StickerTypes.FULL,
+              quality: 70,
             });
-            await sock.sendMessage(from, { sticker: buffer });
-          } catch (error) {
-            console.error(error);
+
+            const stickerBuffer = await sticker.toBuffer();
+
             await sock.sendMessage(from, {
-              text: "❗ Erro ao criar figurinha. Tente novamente.",
+              sticker: stickerBuffer,
+            });
+          } catch (error) {
+            console.error("Erro ao criar figurinha:", error);
+            await sock.sendMessage(from, {
+              text: "❗ Ocorreu um erro ao criar a figurinha. Tente novamente.",
             });
           }
 
