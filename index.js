@@ -283,32 +283,21 @@ async function startBot() {
           break;
 
         case "s": {
-          const context = msg.message.extendedTextMessage?.contextInfo;
+          const quoted =
+            msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
 
-          if (!context || !context.quotedMessage) {
+          if (!quoted) {
             await sock.sendMessage(from, {
               text: "❗ Responda a uma imagem ou vídeo para virar figurinha!",
             });
             break;
           }
 
-          const quoted = {
-            message: context.quotedMessage,
-            key: {
-              remoteJid: from,
-              id: context.stanzaId,
-              fromMe: false,
-              participant: context.participant || msg.key.remoteJid, // fallback para DMs
-            },
-          };
+          let mediaMessage = null;
+          if (quoted.imageMessage) mediaMessage = quoted.imageMessage;
+          else if (quoted.videoMessage) mediaMessage = quoted.videoMessage;
 
-          const mediaType = quoted.message.imageMessage
-            ? "image"
-            : quoted.message.videoMessage
-            ? "video"
-            : null;
-
-          if (!mediaType) {
+          if (!mediaMessage) {
             await sock.sendMessage(from, {
               text: "❗ A mensagem respondida não contém imagem ou vídeo.",
             });
@@ -316,18 +305,13 @@ async function startBot() {
           }
 
           try {
-            const buffer = await downloadMediaMessage(
-              quoted,
-              "buffer",
-              {},
-              { logger: undefined, reuploadRequest: sock }
-            );
-
-            await sock.sendMessage(from, {
-              sticker: buffer,
+            const buffer = await downloadMediaMessage({
+              message: quoted,
+              sock,
             });
+            await sock.sendMessage(from, { sticker: buffer });
           } catch (error) {
-            console.error("Erro ao gerar figurinha:", error);
+            console.error(error);
             await sock.sendMessage(from, {
               text: "❗ Erro ao criar figurinha. Tente novamente.",
             });
