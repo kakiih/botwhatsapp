@@ -6,8 +6,6 @@ const {
   downloadContentFromMessage, // ✅ aqui
 } = require("@whiskeysockets/baileys");
 
-const { Sticker, StickerTypes } = require("wa-sticker-formatter");
-
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
 
@@ -284,70 +282,46 @@ async function startBot() {
             });
           }
           break;
-
-        case "s": {
-          const context = msg.message.extendedTextMessage?.contextInfo;
-
-          if (!context || !context.quotedMessage) {
+        case "s":
+          // Verifica se a mensagem é uma imagem ou se a mensagem é uma legenda de imagem
+          const isImage =
+            msg.message.imageMessage ||
+            msg.message.extendedTextMessage?.contextInfo?.quotedMessage
+              ?.imageMessage;
+          if (!isImage) {
             await sock.sendMessage(from, {
-              text: "❗ Responda a uma imagem ou vídeo para virar figurinha!",
-            });
-            break;
-          }
-
-          const quoted = context.quotedMessage;
-          const type = Object.keys(quoted)[0];
-
-          // Verifica se é imagem ou vídeo curto
-          if (type !== "imageMessage" && type !== "videoMessage") {
-            await sock.sendMessage(from, {
-              text: "❗ Só é possível criar figurinha a partir de imagem ou vídeo curto!",
+              text: "❗ Envie uma imagem ou responda uma imagem com o comando ,s para criar a figurinha.",
             });
             break;
           }
 
           try {
-            const mediaMsg = {
-              key: {
-                remoteJid: from,
-                id: context.stanzaId,
-                fromMe: false,
-              },
-              message: quoted,
-            };
-
-            const stream = await downloadContentFromMessage(
-              quoted[type],
-              type === "imageMessage" ? "image" : "video"
-            );
+            // Obter o stream da imagem (se for uma resposta a imagem, usa o quotedMessage)
+            const stream = isImage.imageMessage
+              ? await downloadContentFromMessage(
+                  msg.message.imageMessage,
+                  "image"
+                )
+              : await downloadContentFromMessage(
+                  msg.message.extendedTextMessage.contextInfo.quotedMessage
+                    .imageMessage,
+                  "image"
+                );
 
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // Cria figurinha com metadados opcionais (autor, nome do pack)
-            const sticker = new Sticker(buffer, {
-              type: StickerTypes.FULL,
-              pack: "SylvaBot",
-              author: "Miguel",
-            });
-
-            const stickerBuffer = await sticker.toBuffer();
-
-            await sock.sendMessage(
-              from,
-              { sticker: stickerBuffer },
-              { quoted: msg }
-            );
-          } catch (err) {
-            console.error("Erro ao criar figurinha:", err);
+            // Enviar a figurinha (sticker) usando o buffer da imagem
+            await sock.sendMessage(from, { sticker: buffer });
+          } catch (e) {
+            console.log(e);
             await sock.sendMessage(from, {
-              text: "❌ Ocorreu um erro ao criar a figurinha!",
+              text: "❗ Não foi possível criar a figurinha.",
             });
           }
           break;
-        }
 
         default:
           await sock.sendMessage(from, {
