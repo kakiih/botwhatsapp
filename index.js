@@ -5,7 +5,7 @@ const {
   fetchLatestBaileysVersion,
   downloadContentFromMessage, // ✅ aqui
 } = require("@whiskeysockets/baileys");
-
+const sharp = require("sharp");
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
 
@@ -297,6 +297,7 @@ async function startBot() {
           }
 
           try {
+            // Pega o conteúdo da imagem
             const stream = isImage.imageMessage
               ? await downloadContentFromMessage(
                   msg.message.imageMessage,
@@ -313,14 +314,19 @@ async function startBot() {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            await sock.sendMessage(from, {
-              image: buffer,
-              mimetype: isImage.imageMessage?.mimetype || "image/jpeg",
-              fileName: "sticker.jpg",
-              sendAsSticker: true,
-            });
+            // Usa sharp para converter o buffer para WebP e aplicar opções para sticker
+            const webpSticker = await sharp(buffer)
+              .resize(512, 512, {
+                fit: "contain",
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+              }) // 512x512 e fundo transparente
+              .webp({ quality: 80 }) // qualidade 80
+              .toBuffer();
+
+            // Envia como sticker (buffer WebP)
+            await sock.sendMessage(from, { sticker: webpSticker });
           } catch (e) {
-            console.log(e);
+            console.error(e);
             await sock.sendMessage(from, {
               text: "❗ Não foi possível criar a figurinha.",
             });
