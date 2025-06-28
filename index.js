@@ -190,19 +190,34 @@ async function startBot() {
 ┃ 🤖 *Comandos disponíveis:*
 ┃
 ┃ 📡 ${prefixo}ping — Testa se o bot tá vivo
-┃ 🕒 ${prefixo}hora — Mostra o horário atual
 ┃ 📜 ${prefixo}menu — Exibe este menu
+┃ 🕒 ${prefixo}hora — Mostra o horário atual
+┃ 🖼️ ${prefixo}s — Crie uma figurinha!
+┃
+┃ 🎉 *Brincadeiras*
+┃
 ┃ 🍽️ ${prefixo}comer @ — Coma alguém do grupo!
+┃ 🍽️ ${prefixo}molestar @ — moleste alguém do grupo!
 ┃ 💋 ${prefixo}beijar @ — Beije alguém com carinho
 ┃ ✋ ${prefixo}tapa @ — Dê um tapa com estilo!
 ┃ 🚽 ${prefixo}mijar @ — Liberte a bexiga em alguém
-┃ 🎮 ${prefixo}jogodavelha @ — Desafie alguém para jogar!
+┃ 🌈 ${prefixo}gay @ — Mede o nível de gay
+┃ 🧍 ${prefixo}hetero @ — Mede o nível de hetero
+┃ 😵 ${prefixo}feio @ — Mede beleza
+┃ 📉 ${prefixo}corno @ — Mede o nível de corno
+┃ 🎯 ${prefixo}chance — Chance de algo acontecer
+┃ 🔮 ${prefixo}quando — Quando algo vai acontecer
+┃ 🤔 ${prefixo}decisão — Decide com sim ou Não
+┃
+┃ 🎮 *Jogos*
+┃
+┃ 🎉 ${prefixo}jogodavelha @ — Desafie alguém!
 ┃ 🎲 ${prefixo}jokenpo — [pedra, papel ou tesoura]
-┃ 🖼️ ${prefixo}s — crie um sticker!
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
-            `,
+`,
           });
+
           break;
 
         case "hora":
@@ -223,8 +238,29 @@ async function startBot() {
             const mencionadoBeijar =
               msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
             await sock.sendMessage(from, {
-              text: `💋 Você acaba de receber um beijo estalado!`,
+              text: `💋 Você acaba de receber um beijão na boca!`,
               mentions: [mencionadoBeijar],
+            });
+          }
+          break;
+
+        case "molestar":
+          if (
+            !msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length
+          ) {
+            await sock.sendMessage(from, {
+              text: "❗ Mencione alguém para molestar!",
+            });
+            break;
+          }
+          {
+            const mencionadoMolestar =
+              msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
+            await sock.sendMessage(from, {
+              text: `🍽️ @${
+                mencionadoMolestar.split("@")[0]
+              } foi molestado(a) com força 🔥`,
+              mentions: [mencionadoMolestar],
             });
           }
           break;
@@ -284,9 +320,9 @@ async function startBot() {
             const mencionadoMijar =
               msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
             await sock.sendMessage(from, {
-              text: `🖐️ @${
+              text: `💧 @${
                 mencionadoMijar.split("@")[0]
-              } tomou uma mijada na cara! Vai deixar? 😮`,
+              } tomou uma mijada na cara e bebeu tudo! 😋`,
               mentions: [mencionadoMijar],
             });
           }
@@ -402,11 +438,54 @@ async function startBot() {
           } catch (e) {
             console.error(e);
             await sock.sendMessage(from, {
-              text: "❗ Não foi possível criar a figurinha.",
+              text: `❗ Erro ao criar figurinha: ${e.message}`,
             });
           }
           break;
 
+        case "corno":
+        case "cornometro":
+        case "gay":
+        case "hetero":
+        case "feio":
+        case "beleza":
+          {
+            const autorMsg = msg.key.participant || msg.key.remoteJid;
+
+            const mencionados =
+              msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
+
+            const alvo =
+              mencionados && mencionados.length > 0 ? mencionados[0] : autorMsg;
+
+            const nomeAlvo = alvo.split("@")[0];
+            const porcentagem = Math.floor(Math.random() * 101);
+
+            let resposta = "";
+
+            switch (comando) {
+              case "corno":
+              case "cornometro":
+                resposta = `🧠 Analisando perfil...\n🔎 Resultado: @${nomeAlvo} é *${porcentagem}% corno*!`;
+                break;
+              case "gay":
+                resposta = `🌈 Medindo energia...\n@${nomeAlvo} é *${porcentagem}% gay*! 🏳️‍🌈`;
+                break;
+              case "hetero":
+                resposta = `⚧️ Calculando...\n@${nomeAlvo} é *${porcentagem}% hetero*!`;
+                break;
+              case "feio":
+              case "beleza":
+                resposta = `👁️ Analisando beleza...\n@${nomeAlvo} está *${porcentagem}% bonito(a)* hoje!`;
+                break;
+            }
+
+            await sock.sendMessage(from, {
+              text: resposta,
+              mentions: [alvo],
+            });
+          }
+          break;
         default:
           await sock.sendMessage(from, {
             text: `❓ Comando não reconhecido. Digite ${prefixo}menu para ver os comandos.`,
