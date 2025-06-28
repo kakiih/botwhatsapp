@@ -3,7 +3,9 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  downloadContentFromMessage, // ✅ aqui
 } = require("@whiskeysockets/baileys");
+
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
 
@@ -312,10 +314,11 @@ async function startBot() {
               message: quoted,
             };
 
-            const stream = await sock.downloadContentFromMessage(
+            const stream = await downloadContentFromMessage(
               quoted[type],
               type === "imageMessage" ? "image" : "video"
             );
+
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
               buffer = Buffer.concat([buffer, chunk]);
