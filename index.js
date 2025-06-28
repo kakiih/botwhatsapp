@@ -6,6 +6,8 @@ const {
   downloadContentFromMessage, // ✅ aqui
 } = require("@whiskeysockets/baileys");
 
+const { Sticker, StickerTypes } = require("wa-sticker-formatter");
+
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
 
@@ -296,7 +298,7 @@ async function startBot() {
           const quoted = context.quotedMessage;
           const type = Object.keys(quoted)[0];
 
-          // Verifica se o tipo é imagem ou vídeo curto
+          // Verifica se é imagem ou vídeo curto
           if (type !== "imageMessage" && type !== "videoMessage") {
             await sock.sendMessage(from, {
               text: "❗ Só é possível criar figurinha a partir de imagem ou vídeo curto!",
@@ -315,7 +317,7 @@ async function startBot() {
             };
 
             const stream = await downloadContentFromMessage(
-              mediaMsg.message[type],
+              quoted[type],
               type === "imageMessage" ? "image" : "video"
             );
 
@@ -324,11 +326,18 @@ async function startBot() {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            console.log("Buffer length:", buffer.length); // ✅ log para testar
+            // Cria figurinha com metadados opcionais (autor, nome do pack)
+            const sticker = new Sticker(buffer, {
+              type: StickerTypes.FULL,
+              pack: "SylvaBot",
+              author: "Miguel",
+            });
+
+            const stickerBuffer = await sticker.toBuffer();
 
             await sock.sendMessage(
               from,
-              { image: buffer, asSticker: true },
+              { sticker: stickerBuffer },
               { quoted: msg }
             );
           } catch (err) {
@@ -337,7 +346,6 @@ async function startBot() {
               text: "❌ Ocorreu um erro ao criar a figurinha!",
             });
           }
-
           break;
         }
 
