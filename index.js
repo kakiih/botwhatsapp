@@ -315,7 +315,7 @@ async function startBot() {
             };
 
             const stream = await downloadContentFromMessage(
-              quoted[type],
+              mediaMsg.message[type],
               type === "imageMessage" ? "image" : "video"
             );
 
@@ -324,13 +324,20 @@ async function startBot() {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            await sock.sendMessage(from, { sticker: buffer }, { quoted: msg });
+            console.log("Buffer length:", buffer.length); // ✅ log para testar
+
+            await sock.sendMessage(
+              from,
+              { image: buffer, asSticker: true },
+              { quoted: msg }
+            );
           } catch (err) {
             console.error("Erro ao criar figurinha:", err);
             await sock.sendMessage(from, {
               text: "❌ Ocorreu um erro ao criar a figurinha!",
             });
           }
+
           break;
         }
 
