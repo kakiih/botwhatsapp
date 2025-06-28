@@ -282,12 +282,13 @@ async function startBot() {
             });
           }
           break;
+
         case "s":
-          // Verifica se a mensagem é uma imagem ou se a mensagem é uma legenda de imagem
           const isImage =
             msg.message.imageMessage ||
             msg.message.extendedTextMessage?.contextInfo?.quotedMessage
               ?.imageMessage;
+
           if (!isImage) {
             await sock.sendMessage(from, {
               text: "❗ Envie uma imagem ou responda uma imagem com o comando ,s para criar a figurinha.",
@@ -296,7 +297,6 @@ async function startBot() {
           }
 
           try {
-            // Obter o stream da imagem (se for uma resposta a imagem, usa o quotedMessage)
             const stream = isImage.imageMessage
               ? await downloadContentFromMessage(
                   msg.message.imageMessage,
@@ -313,8 +313,12 @@ async function startBot() {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // Enviar a figurinha (sticker) usando o buffer da imagem
-            await sock.sendMessage(from, { sticker: buffer });
+            await sock.sendMessage(from, {
+              image: buffer,
+              mimetype: isImage.imageMessage?.mimetype || "image/jpeg",
+              fileName: "sticker.jpg",
+              sendAsSticker: true,
+            });
           } catch (e) {
             console.log(e);
             await sock.sendMessage(from, {
