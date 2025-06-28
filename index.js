@@ -5,9 +5,13 @@ const {
   fetchLatestBaileysVersion,
   downloadContentFromMessage, // ✅ aqui
 } = require("@whiskeysockets/baileys");
-const sharp = require("sharp");
 const { Boom } = require("@hapi/boom");
 const qrcode = require("qrcode-terminal");
+const ffmpeg = require("fluent-ffmpeg");
+const fs = require("fs");
+const path = require("path");
+const { writeFile } = require("fs/promises");
+const { randomUUID } = require("crypto");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
@@ -17,6 +21,42 @@ async function startBot() {
     version: (await fetchLatestBaileysVersion()).version,
     auth: state,
   });
+
+  async function converterImagemParaWebp(buffer) {
+    const nomeBase = `/data/data/com.termux/files/home/temp_${randomUUID()}`;
+    const inputPath = `${nomeBase}.jpg`;
+    const outputPath = `${nomeBase}.webp`;
+
+    await writeFile(inputPath, buffer);
+
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions([
+          "-vcodec",
+          "libwebp",
+          "-vf",
+          "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+          "-lossless",
+          "1",
+          "-preset",
+          "default",
+          "-loop",
+          "0",
+          "-an",
+          "-vsync",
+          "0",
+        ])
+        .toFormat("webp")
+        .save(outputPath)
+        .on("end", () => {
+          const webp = fs.readFileSync(outputPath);
+          fs.unlinkSync(inputPath);
+          fs.unlinkSync(outputPath);
+          resolve(webp);
+        })
+        .on("error", (err) => reject(err));
+    });
+  }
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -297,7 +337,6 @@ async function startBot() {
           }
 
           try {
-            // Pega o conteúdo da imagem
             const stream = isImage.imageMessage
               ? await downloadContentFromMessage(
                   msg.message.imageMessage,
@@ -314,16 +353,7 @@ async function startBot() {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // Usa sharp para converter o buffer para WebP e aplicar opções para sticker
-            const webpSticker = await sharp(buffer)
-              .resize(512, 512, {
-                fit: "contain",
-                background: { r: 0, g: 0, b: 0, alpha: 0 },
-              }) // 512x512 e fundo transparente
-              .webp({ quality: 80 }) // qualidade 80
-              .toBuffer();
-
-            // Envia como sticker (buffer WebP)
+            const webpSticker = await converterImagemParaWebp(buffer);
             await sock.sendMessage(from, { sticker: webpSticker });
           } catch (e) {
             console.error(e);
