@@ -22,6 +22,45 @@ async function startBot() {
     auth: state,
   });
 
+  async function converterVideoParaWebp(buffer) {
+    const nomeBase = `/data/data/com.termux/files/home/temp_${randomUUID()}`;
+    const inputPath = `${nomeBase}.mp4`;
+    const outputPath = `${nomeBase}.webp`;
+
+    await writeFile(inputPath, buffer);
+
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .inputFormat("mp4")
+        .outputOptions([
+          "-vcodec",
+          "libwebp",
+          "-vf",
+          "scale=512:512:force_original_aspect_ratio=decrease,fps=15,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+          "-loop",
+          "0",
+          "-ss",
+          "0",
+          "-t",
+          "10", // máximo 10 segundos
+          "-preset",
+          "default",
+          "-an",
+          "-vsync",
+          "0",
+        ])
+        .toFormat("webp")
+        .save(outputPath)
+        .on("end", () => {
+          const webp = fs.readFileSync(outputPath);
+          fs.unlinkSync(inputPath);
+          fs.unlinkSync(outputPath);
+          resolve(webp);
+        })
+        .on("error", (err) => reject(err));
+    });
+  }
+
   async function converterImagemParaWebp(buffer) {
     const nomeBase = `/data/data/com.termux/files/home/temp_${randomUUID()}`;
     const inputPath = `${nomeBase}.jpg`;
@@ -324,36 +363,41 @@ async function startBot() {
           break;
 
         case "s":
-          const isImage =
-            msg.message.imageMessage ||
-            msg.message.extendedTextMessage?.contextInfo?.quotedMessage
-              ?.imageMessage;
+          const quotedMsg =
+            msg.message?.extendedTextMessage?.contextInfo?.quotedMessage ||
+            msg.message;
 
-          if (!isImage) {
+          const mediaType = quotedMsg.imageMessage
+            ? "image"
+            : quotedMsg.videoMessage
+            ? "video"
+            : null;
+
+          if (!mediaType) {
             await sock.sendMessage(from, {
-              text: "❗ Envie uma imagem ou responda uma imagem com o comando ,s para criar a figurinha.",
+              text: "❗ Envie ou responda uma imagem ou vídeo com o comando ,s para criar a figurinha.",
             });
             break;
           }
 
           try {
-            const stream = isImage.imageMessage
-              ? await downloadContentFromMessage(
-                  msg.message.imageMessage,
-                  "image"
-                )
-              : await downloadContentFromMessage(
-                  msg.message.extendedTextMessage.contextInfo.quotedMessage
-                    .imageMessage,
-                  "image"
-                );
+            const stream = await downloadContentFromMessage(
+              quotedMsg[mediaType + "Message"],
+              mediaType
+            );
 
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
               buffer = Buffer.concat([buffer, chunk]);
             }
 
-            const webpSticker = await converterImagemParaWebp(buffer);
+            let webpSticker;
+            if (mediaType === "image") {
+              webpSticker = await converterImagemParaWebp(buffer);
+            } else if (mediaType === "video") {
+              webpSticker = await converterVideoParaWebp(buffer);
+            }
+
             await sock.sendMessage(from, { sticker: webpSticker });
           } catch (e) {
             console.error(e);
