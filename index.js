@@ -281,6 +281,56 @@ async function startBot() {
           }
           break;
 
+        case "s": {
+          const context = msg.message.extendedTextMessage?.contextInfo;
+
+          if (!context || !context.quotedMessage) {
+            await sock.sendMessage(from, {
+              text: "❗ Responda a uma imagem ou vídeo para virar figurinha!",
+            });
+            break;
+          }
+
+          const quoted = context.quotedMessage;
+          const type = Object.keys(quoted)[0];
+
+          // Verifica se o tipo é imagem ou vídeo curto
+          if (type !== "imageMessage" && type !== "videoMessage") {
+            await sock.sendMessage(from, {
+              text: "❗ Só é possível criar figurinha a partir de imagem ou vídeo curto!",
+            });
+            break;
+          }
+
+          try {
+            const mediaMsg = {
+              key: {
+                remoteJid: from,
+                id: context.stanzaId,
+                fromMe: false,
+              },
+              message: quoted,
+            };
+
+            const stream = await sock.downloadContentFromMessage(
+              quoted[type],
+              type === "imageMessage" ? "image" : "video"
+            );
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) {
+              buffer = Buffer.concat([buffer, chunk]);
+            }
+
+            await sock.sendMessage(from, { sticker: buffer }, { quoted: msg });
+          } catch (err) {
+            console.error("Erro ao criar figurinha:", err);
+            await sock.sendMessage(from, {
+              text: "❌ Ocorreu um erro ao criar a figurinha!",
+            });
+          }
+          break;
+        }
+
         default:
           await sock.sendMessage(from, {
             text: `❓ Comando não reconhecido. Digite ${prefixo}menu para ver os comandos.`,
